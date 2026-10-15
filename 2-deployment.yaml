@@ -1,0 +1,100 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: web-app
+  labels:
+    app: web-app
+spec:
+  selector:
+    matchLabels:
+      app: web-app
+  template:
+    metadata:
+      labels:
+        app: web-app
+    spec:
+      automountServiceAccountToken: false
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+            - labelSelector:
+                matchLabels:
+                  app: web-app
+              topologyKey: kubernetes.io/hostname
+      initContainers:
+        - name: init-html
+          image: busybox:1.37.0
+          command:
+            - sh
+            - -ec
+            - |
+              if [ ! -e /html/index.html ]; then
+                umask 002
+                page=$(mktemp /html/.index.XXXXXX)
+                trap 'rm -f "$page"' EXIT
+                printf '%s\n' '<!doctype html><html lang="pt-BR"><meta charset="utf-8"><title>Cloud Builders</title><h1>Trabalho FIAP - Cloud Builders</h1><p>NGINX no OpenShift com página em volume persistente.</p></html>' > "$page"
+                printf '<!-- Volume inicializado em %s por %s -->\n' "$(date -u +%Y-%m-%dT%H:%M:%SZ)" "$HOSTNAME" >> "$page"
+                chmod 664 "$page"
+                ln "$page" /html/index.html || test -f /html/index.html
+              fi
+          resources:
+            requests:
+              cpu: 10m
+              memory: 16Mi
+            limits:
+              cpu: 100m
+              memory: 32Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          volumeMounts:
+            - name: web-storage
+              mountPath: /html
+      containers:
+        - name: nginx
+          image: nginxinc/nginx-unprivileged:stable-alpine
+          command: ["nginx"]
+          args: ["-g", "daemon off;"]
+          ports:
+            - name: http
+              containerPort: 8080
+          resources:
+            requests:
+              cpu: 100m
+              memory: 128Mi
+            limits:
+              cpu: 200m
+              memory: 256Mi
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop: ["ALL"]
+          readinessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 3
+          livenessProbe:
+            httpGet:
+              path: /
+              port: http
+            initialDelaySeconds: 10
+          volumeMounts:
+            - name: web-storage
+              mountPath: /usr/share/nginx/html
+              readOnly: true
+            - name: nginx-tmp
+              mountPath: /tmp
+      volumes:
+        - name: web-storage
+          persistentVolumeClaim:
+            claimName: web-pvc
+        - name: nginx-tmp
+          emptyDir: {}
