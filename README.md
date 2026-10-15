@@ -9,7 +9,7 @@ Exemplo simples para o trabalho de Cloud Builders: NGINX serve uma página HTML 
 | `1-pvc.yaml` | Solicitar 1 GiB de storage (bônus 2) |
 | `2-deployment.yaml` | Executar NGINX e inicializar a página no PVC |
 | `3-expose.yaml` | Service e Route HTTPS para acessar a página |
-| `4-hpa.yaml` | Escalar de 1 a 4 réplicas por CPU (bônus 1) |
+| `4-hpa.yaml` | Escalar de 2 a 4 réplicas por CPU (bônus 1) |
 | [docs/relatorio.md](docs/relatorio.md) | Modelo separado para entrega com prints |
 
 ## Pré-requisitos
